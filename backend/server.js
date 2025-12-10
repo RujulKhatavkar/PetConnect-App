@@ -324,10 +324,29 @@ app.get('/api/applications', authenticateToken, (req, res) => {
   let query;
   let params;
   if (user.type === 'adopter') {
-    query = 'SELECT * FROM applications WHERE applicantId = ? ORDER BY submittedDate DESC';
+    query = `
+      SELECT
+        a.*,
+        p.name  AS petName,
+        p.image AS petImage
+      FROM applications a
+      JOIN pets p ON p.id = a.petId
+      WHERE a.applicantId = ?
+      ORDER BY a.submittedDate DESC
+    `;
     params = [user.id];
   } else {
-    query = 'SELECT * FROM applications WHERE shelterId = ? ORDER BY submittedDate DESC';
+    // shelter: see all applications for their pets
+    query = `
+      SELECT
+        a.*,
+        p.name  AS petName,
+        p.image AS petImage
+      FROM applications a
+      JOIN pets p ON p.id = a.petId
+      WHERE a.shelterId = ?
+      ORDER BY a.submittedDate DESC
+    `;
     params = [user.id];
   }
   db.all(query, params, (err, rows) => {
