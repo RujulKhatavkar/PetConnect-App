@@ -1,24 +1,21 @@
 // src/App.tsx
 
 import React, { useEffect, useState } from "react";
-import {HomePage} from "./components/HomePage";
-import {LoginPage} from "./components/LoginPage";
-import {Navigation} from "./components/Navigation";
-import {PetBrowsePage} from "./components/PetBrowsePage";
-import {FavoritesPage} from "./components/FavoritesPage";
-import {ApplicationPage} from "./components/ApplicationPage";
-import {ShelterDashboard} from "./components/ShelterDashboard";
-import {AddPetPage} from "./components/AddPetPage";
+import { HomePage } from "./components/HomePage";
+import { LoginPage } from "./components/LoginPage";
+import { Navigation } from "./components/Navigation";
+import { PetBrowsePage } from "./components/PetBrowsePage";
+import { FavoritesPage } from "./components/FavoritesPage";
+import { ApplicationPage } from "./components/ApplicationPage";
+import { ShelterDashboard } from "./components/ShelterDashboard";
+import { AddPetPage } from "./components/AddPetPage";
+import { PetDetailPage } from "./components/PetDetailPage";
 
 import type { Pet, Application } from "./types";
 
-// src/App.tsx
 export const API_BASE =
   (import.meta as any).env.VITE_API_BASE_URL ||
   "https://petconnect-app-production.up.railway.app";
-
-console.log("API_BASE:", API_BASE);
-
 
 console.log("API_BASE:", API_BASE);
 
@@ -126,7 +123,6 @@ export default function App() {
   // Auth handlers
   // -----------------------------
 
-  // Called from LoginPage – it must pass (user, token)
   const handleLogin = (user: CurrentUser, jwt: string) => {
     localStorage.setItem("token", jwt);
     setCurrentUser(user);
@@ -153,7 +149,9 @@ export default function App() {
   // Pet / favorites
   // -----------------------------
 
-  const handleAddPet = async (petData: Omit<Pet, "id" | "shelterId" | "shelter">) => {
+  const handleAddPet = async (
+    petData: Omit<Pet, "id" | "shelterId" | "shelter">
+  ) => {
     if (!token || !currentUser || currentUser.type !== "shelter") {
       setCurrentPage("login");
       return;
@@ -210,82 +208,75 @@ export default function App() {
 
   const handleSelectPet = (pet: Pet) => {
     setSelectedPet(pet);
-    setCurrentPage("detail");
+    setCurrentPage("detail"); // 👉 Browse → Details
   };
 
   const handleApplyForPet = (pet: Pet) => {
     setSelectedPet(pet);
-    setCurrentPage("application-form");
+    setCurrentPage("application-form"); // 👉 Details → Application form
   };
 
   // -----------------------------
   // Applications
   // -----------------------------
 
-const handleSubmitApplication = async (
-  appData: Omit<Application, "id" | "submittedDate" | "status">
-) => {
-  // Must be an adopter and logged in
-  if (!currentUser || currentUser.type !== "adopter") {
-    // just show login; don’t clear token here
-    setCurrentPage("login");
-    return;
-  }
+  const handleSubmitApplication = async (
+    appData: Omit<Application, "id" | "submittedDate" | "status">
+  ) => {
+    if (!currentUser || currentUser.type !== "adopter") {
+      setCurrentPage("login");
+      return;
+    }
 
-  if (!selectedPet) {
-    console.error("No pet selected for application");
-    alert("Please select a pet before submitting an application.");
-    return;
-  }
+    if (!selectedPet) {
+      console.error("No pet selected for application");
+      alert("Please select a pet before submitting an application.");
+      return;
+    }
 
-  const token = localStorage.getItem("token");
-  if (!token) {
-    // token really missing → do a proper logout
-    handleLogout();
-    return;
-  }
-
-  try {
-    const res = await fetch(`${API_BASE}/api/applications`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        ...appData,
-        petId: selectedPet.id,
-        shelterId: selectedPet.shelterId ?? null,
-      }),
-    });
-
-    // If token expired / invalid, *then* log out
-    if (res.status === 401 || res.status === 403) {
+    const token = localStorage.getItem("token");
+    if (!token) {
       handleLogout();
       return;
     }
 
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.message || "Failed to submit application");
+    try {
+      const res = await fetch(`${API_BASE}/api/applications`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          ...appData,
+          petId: selectedPet.id,
+          shelterId: selectedPet.shelterId ?? null,
+        }),
+      });
+
+      if (res.status === 401 || res.status === 403) {
+        handleLogout();
+        return;
+      }
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.message || "Failed to submit application");
+      }
+
+      const created: Application = await res.json();
+
+      setApplications((prev) => [created, ...prev]);
+
+      setCurrentPage("applications");
+    } catch (err: any) {
+      console.error("Submit application failed", err);
+      alert(
+        err?.message ||
+          "Something went wrong submitting your application. Please try again."
+      );
     }
-
-    const created: Application = await res.json();
-
-    // Add this application to local state for this user
-    setApplications((prev) => [created, ...prev]);
-
-    // Take user to their “My applications” page
-    setCurrentPage("applications");
-  } catch (err: any) {
-    console.error("Submit application failed", err);
-    alert(
-      err?.message ||
-        "Something went wrong submitting your application. Please try again."
-    );
-  }
-};
-
+  };
 
   const handleUpdateApplicationStatus = async (
     appId: number,
@@ -311,22 +302,21 @@ const handleSubmitApplication = async (
     }
   };
 
-  // derived lists (backend already filters by user)
+  // derived lists
   const adopterApplications =
     userType === "adopter" ? applications : [];
   const shelterApplications =
     userType === "shelter" ? applications : [];
-    // Pets that this adopter has already been approved for
-const hiddenPetIdsForAdopter: number[] =
-  userType === "adopter"
-    ? adopterApplications
-        .filter(
-          (app) =>
-            app.status === "approved" || app.status === "completed"
-        )
-        .map((app) => app.petId)
-    : [];
 
+  const hiddenPetIdsForAdopter: number[] =
+    userType === "adopter"
+      ? adopterApplications
+          .filter(
+            (app) =>
+              app.status === "approved" || app.status === "completed"
+          )
+          .map((app) => app.petId)
+      : [];
 
   // -----------------------------
   // Navigation
@@ -334,7 +324,8 @@ const hiddenPetIdsForAdopter: number[] =
 
   const handleNavigate = (page: string) => {
     setCurrentPage(page);
-    if (page !== "detail") {
+    // keep selectedPet when we are in detail or application-form
+    if (page !== "detail" && page !== "application-form") {
       setSelectedPet(null);
     }
   };
@@ -364,25 +355,36 @@ const hiddenPetIdsForAdopter: number[] =
         <LoginPage onLogin={handleLogin} />
       )}
 
-{currentPage === "browse" && userType === "adopter" && (
-  <PetBrowsePage
-    pets={pets.filter(
-      (pet) => !hiddenPetIdsForAdopter.includes(pet.id)
-    )}
-    favorites={favoriteIds}
-    onToggleFavorite={handleToggleFavorite}
-    onSelectPet={handleSelectPet}
-  />
-)}
-
+      {currentPage === "browse" && userType === "adopter" && (
+        <PetBrowsePage
+          pets={pets.filter(
+            (pet) => !hiddenPetIdsForAdopter.includes(pet.id)
+          )}
+          favorites={favoriteIds}
+          onToggleFavorite={handleToggleFavorite}
+          onSelectPet={handleSelectPet}
+        />
+      )}
 
       {currentPage === "detail" &&
+        selectedPet &&
+        userType === "adopter" && (
+          <PetDetailPage
+            pet={selectedPet}
+            isFavorite={favoriteIds.includes(selectedPet.id)}
+            onToggleFavorite={handleToggleFavorite}
+            onBack={() => setCurrentPage("browse")}
+            onApply={handleApplyForPet}
+          />
+        )}
+
+      {currentPage === "application-form" &&
         selectedPet &&
         userType === "adopter" && (
           <ApplicationPage
             selectedPet={selectedPet}
             applications={adopterApplications}
-            onBack={() => setCurrentPage("browse")}
+            onBack={() => setCurrentPage("detail")}
             onSubmit={handleSubmitApplication}
           />
         )}
