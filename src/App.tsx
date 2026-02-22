@@ -13,9 +13,11 @@ import { PetDetailPage } from "./components/PetDetailPage";
 
 import type { Pet, Application } from "./types";
 
-export const API_BASE =
-  (import.meta as any).env.VITE_API_BASE_URL ||
-  "https://petconnect-app-production.up.railway.app";
+export const API_BASE = (import.meta as any).env.VITE_API_BASE_URL;
+
+if (!API_BASE) {
+  throw new Error("Missing VITE_API_BASE_URL. Set it in Render Environment Variables.");
+}
 
 console.log("API_BASE:", API_BASE);
 
