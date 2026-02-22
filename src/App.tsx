@@ -13,13 +13,11 @@ import { PetDetailPage } from "./components/PetDetailPage";
 
 import type { Pet, Application } from "./types";
 
-export const API_BASE = (import.meta as any).env.VITE_API_BASE_URL;
-
-if (!API_BASE) {
-  throw new Error("Missing VITE_API_BASE_URL. Set it in Render Environment Variables.");
-}
+export const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:3000";
 
 console.log("API_BASE:", API_BASE);
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 type UserRole = "adopter" | "shelter";
 type UserType = UserRole | null;

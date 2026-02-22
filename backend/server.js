@@ -20,13 +20,23 @@ const googleClient = new OAuth2Client(
 app.use(cors());
 app.use(express.json());
 
-app.use(cors({
-  origin: [
-    "https://petconnect-app-1.onrender.com",
-    "http://localhost:3000"
-  ],
-  credentials: true
-}));
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:5173",
+  "http://localhost:3000",
+].filter(Boolean);
+
+app.use(
+  cors({
+    origin: function (origin, cb) {
+      // allow server-to-server / curl requests with no origin
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error("Not allowed by CORS: " + origin));
+    },
+    credentials: true,
+  })
+);
 
 function generateToken(user) {
   return jwt.sign(
