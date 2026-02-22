@@ -20,6 +20,14 @@ const googleClient = new OAuth2Client(
 app.use(cors());
 app.use(express.json());
 
+app.use(cors({
+  origin: [
+    "https://petconnect-app-1.onrender.com",
+    "http://localhost:3000"
+  ],
+  credentials: true
+}));
+
 function generateToken(user) {
   return jwt.sign(
     { id: user.id, email: user.email, type: user.type, name: user.name },
