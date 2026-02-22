@@ -151,6 +151,7 @@ const handleSubmit = async (e: React.FormEvent) => {
     try {
       setIsLoading(true);
       setError(null);
+      console.log("codeResponse:", codeResponse);
 
       const res = await fetch(`${API_BASE}/api/auth/google`, {
         method: "POST",
