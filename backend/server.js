@@ -14,10 +14,9 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-key';
 const googleClient = new OAuth2Client(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI || 'http://localhost:5173'
+  process.env.GOOGLE_REDIRECT_URI || "postmessage"
 );
 
-app.use(cors());
 app.use(express.json());
 
 const allowedOrigins = [
@@ -142,52 +141,69 @@ app.get('/api/auth/me', authenticateToken, (req, res) => {
 });
 
 // ----- Auth: Google OAuth code flow -----
-app.post('/api/auth/google', async (req, res) => {
-  const { code } = req.body;
-  if (!code) {
-    return res.status(400).json({ message: 'Missing authorization code' });
-  }
+app.post("/api/auth/google", async (req, res) => {
   try {
-    const { tokens } = await googleClient.getToken(code);
-    const ticket = await googleClient.verifyIdToken({
-      idToken: tokens.id_token,
-      audience: process.env.GOOGLE_CLIENT_ID
-    });
-    const payload = ticket.getPayload();
-    const email = payload.email;
-    const name = payload.name || (email && email.split('@')[0]) || 'Google User';
-    if (!email) {
-      return res.status(400).json({ message: 'No email returned from Google' });
+    // Google Identity Services sends { credential: "<id_token>" }
+    const { credential, code } = req.body;
+
+    // support both payloads (credential preferred)
+    const idToken = credential;
+
+    if (!idToken) {
+      return res.status(400).json({
+        message:
+          "Missing Google credential. Frontend should POST { credential: <id_token> }",
+      });
     }
-    db.get('SELECT id, name, email, type FROM users WHERE email = ?', [email], (err, user) => {
-      if (err) {
-        console.error(err);
-        return res.status(500).json({ message: 'Database error' });
-      }
-      const defaultType = 'adopter';
-      if (!user) {
-        db.run(
-          'INSERT INTO users (name, email, password_hash, type) VALUES (?, ?, ?, ?)',
-          [name, email, 'google-oauth', defaultType],
-          function (err2) {
-            if (err2) {
-              console.error(err2);
-              return res.status(500).json({ message: 'Database error' });
-            }
-            const newUser = { id: this.lastID, name, email, type: defaultType };
-            const token = generateToken(newUser);
-            return res.status(201).json({ user: newUser, token });
-          }
-        );
-      } else {
-        const safeUser = { id: user.id, name: user.name, email: user.email, type: user.type };
-        const token = generateToken(safeUser);
-        return res.json({ user: safeUser, token });
-      }
+
+    const ticket = await googleClient.verifyIdToken({
+      idToken,
+      audience: process.env.GOOGLE_CLIENT_ID,
     });
+
+    const payload = ticket.getPayload();
+    const email = payload?.email;
+    const name = payload?.name || (email && email.split("@")[0]) || "Google User";
+
+    if (!email) {
+      return res.status(400).json({ message: "No email returned from Google" });
+    }
+
+    db.get(
+      "SELECT id, name, email, type FROM users WHERE email = ?",
+      [email],
+      (err, user) => {
+        if (err) {
+          console.error(err);
+          return res.status(500).json({ message: "Database error" });
+        }
+
+        const defaultType = "adopter";
+
+        if (!user) {
+          db.run(
+            "INSERT INTO users (name, email, password_hash, type) VALUES (?, ?, ?, ?)",
+            [name, email, "google-oauth", defaultType],
+            function (err2) {
+              if (err2) {
+                console.error(err2);
+                return res.status(500).json({ message: "Database error" });
+              }
+              const newUser = { id: this.lastID, name, email, type: defaultType };
+              const token = generateToken(newUser);
+              return res.status(201).json({ user: newUser, token });
+            }
+          );
+        } else {
+          const safeUser = { id: user.id, name: user.name, email: user.email, type: user.type };
+          const token = generateToken(safeUser);
+          return res.json({ user: safeUser, token });
+        }
+      }
+    );
   } catch (err) {
-    console.error('Google auth error', err);
-    return res.status(500).json({ message: 'Google authentication failed' });
+    console.error("Google auth error", err);
+    return res.status(500).json({ message: "Google authentication failed" });
   }
 });
 

@@ -144,34 +144,33 @@ const handleSubmit = async (e: React.FormEvent) => {
 };
 
 
-  const googleLogin = useGoogleLogin({
-    flow: 'auth-code',
-    onSuccess: async (codeResponse) => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        const res = await fetch(`${API_BASE}/api/auth/google`, { 
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: codeResponse.code }),
-        });
-        if (!res.ok) {
-          const body = await res.json().catch(() => ({}));
-          throw new Error(body.message || 'Google sign-in failed');
-        }
-        const data: any = await res.json();
-        localStorage.setItem('token', data.token);
-        onLogin(data.user, data.token);
-      } catch (err: any) {
-        setError(err?.message || 'Google sign-in failed');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onError: () => {
-      setError('Google sign-in was cancelled or failed');
-    },
-  });
+ const googleLogin = useGoogleLogin({
+  flow: "auth-code",
+  redirect_uri: "postmessage", 
+  onSuccess: async (codeResponse) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      const res = await fetch(`${API_BASE}/api/auth/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: codeResponse.code }),
+      });
+
+      const data: any = await res.json(); 
+      if (!res.ok) throw new Error(data.message || "Google sign-in failed");
+
+      localStorage.setItem("token", data.token);
+      onLogin(data.user, data.token);
+    } catch (err: any) {
+      setError(err?.message || "Google sign-in failed");
+    } finally {
+      setIsLoading(false);
+    }
+  },
+  onError: () => setError("Google sign-in was cancelled or failed"),
+});
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 bg-gradient-to-br from-orange-50 via-purple-50 to-blue-50">
